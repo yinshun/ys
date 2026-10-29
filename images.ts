@@ -25,7 +25,7 @@ const arg = (name: string, fallback: string): string => {
   return i >= 0 && process.argv[i + 1] !== undefined ? process.argv[i + 1] : fallback;
 };
 
-const SRC = arg('src', CORPUS_SVG);
+const SRC = arg('src', existsSync(CORPUS_SVG) ? CORPUS_SVG : join(ROOT, '.local/yinshun-corpus/svg'));
 const FIG = arg('figures', join(ROOT, '.local/CBR2X-figures/Y'));
 const DEST = arg('dest', IMAGES);
 
