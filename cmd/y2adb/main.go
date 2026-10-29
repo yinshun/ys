@@ -18,6 +18,16 @@ const header = `<檔 n="ys.xml"><集 l="圖集,註釋群,編目資訊">印順法
 
 var titleRe = regexp.MustCompile(`<title level="m"[^>]*>([^<]+)</title>`)
 
+// 目次層級：CBETA 的 <cb:mulu level="N"> 對到第 N 個名字（N 最多 18，實測 Y 部最深 18）。
+// 前三個沿用 章／節／項；第四、五、六個用印順舊 corpus 的 干／一／數（攝大乘論講記的
+// 甲、乙、丙與底下的 一、二、三），再深就 Ａ、Ｂ、Ｃ…。層級鏈寫在每個 <書 t="…">。
+var tierNames = []string{
+	"部", "章", "節", "項", "干", "一", "數",
+	"Ａ", "Ｂ", "Ｃ", "Ｄ", "Ｅ", "Ｆ", "Ｇ", "Ｈ", "Ｉ", "Ｊ", "Ｋ",
+}
+
+var tierChain = strings.Join(tierNames, ",") + "."
+
 // CBETA 的 <graphic url="../figures/Y/Y08p0052_01.svg"/>：檔名就是圖名，
 // 前面的 Y08 是冊。圖檔放在 Y-images/svg/Y08/ 下（images.ts 從
 // CBR2X-figures 與 yinshun-corpus/svg 搬過來），adb 的資源名沿用這個相對路徑。
@@ -39,10 +49,20 @@ type emitter struct {
 	muluLevel int
 	// 目前開著的標題標籤（章／節／項），</章> 要對上同一個名字
 	headTag string
+	// 這本書的書名與「書名重複的標題」是否已經處理（第一個 <head> 常常就是書名）
+	bookTitle    string
+	titleDropped bool
 }
 
 func (e *emitter) nl() {
 	s := e.line.String()
+	// 第一個標題若與書名完全相同，就不要多開一個目錄節點（書已經顯示書名了）
+	if !e.titleDropped && e.headTag != "" && e.bookTitle != "" {
+		if s == "<"+e.headTag+` u="文">`+esc(e.bookTitle)+"</"+e.headTag+">" {
+			s = esc(e.bookTitle)
+			e.titleDropped = true
+		}
+	}
 	e.line.Reset()
 	e.out.WriteString(s)
 	e.out.WriteByte('\n')
@@ -52,27 +72,19 @@ func (e *emitter) nl() {
 func (e *emitter) write(s string) { e.line.WriteString(s) }
 
 /**
- * 開一個標題。層級來自前面的 <cb:mulu level="N">：
- *   1 → <章 t="節,項.">（章底下可以有節、項）
- *   2 → <節 t="項.">
- *   3 → <項>
- * 目錄樹靠 `t=` 宣告「這一層的小孩是哪一種標籤」，沒有 `t=` 就只能當葉節點。
- * 2026-10-28：先前一律寫 <章>，於是「第一章」「第一節」在目錄裡同屬一層。
+ * 開一個標題。層級來自前面的 <cb:mulu level="N">，對到 tierNames：
+ *   1 章、2 節、3 項、4 干、5 一、6 數、7 Ａ、8 Ｂ …
+ * 目錄樹的層級鏈寫在 <書 t="章,節,項,干,一,數,Ａ.">，標題標籤本身不再帶 `t=`。
+ * 2026-10-29：先前只對到「項」，level 5 以後全落到 <章>，於是「正釋」和
+ * 「甲 阿賴耶教」在目錄裡同一層（攝大乘論講記）。這裡改成一路排到 18 層。
  */
 func (e *emitter) openHeading() {
-	tag, t := "章", `t="節,項."`
-	switch e.muluLevel {
-	case 2:
-		tag, t = "節", `t="項."`
-	case 3, 4:
-		tag, t = "項", ""
+	tag := "章"
+	if e.muluLevel >= 1 && e.muluLevel <= len(tierNames) {
+		tag = tierNames[e.muluLevel-1]
 	}
 	e.headTag = tag
-	if t == "" {
-		e.write("<" + tag + ` u="文">`)
-	} else {
-		e.write("<" + tag + " " + t + ` u="文">`)
-	}
+	e.write("<" + tag + ` u="文">`)
 }
 
 func esc(s string) string {
@@ -155,7 +167,9 @@ func main() {
 		}
 		e.write(fmt.Sprintf(`<檔 n="%s">`, filepath.Base(path)))
 		e.nl()
-		e.write(fmt.Sprintf(`<書 l="目次" t="章,節,項." id="%d">%s</書>`, vol, esc(title)))
+		e.write(fmt.Sprintf(`<書 l="目次" t="%s" id="%d">%s</書>`, tierChain, vol, esc(title)))
+		e.bookTitle = title
+		e.titleDropped = false
 		e.stats["書"]++
 		e.nl()
 		dec := xml.NewDecoder(strings.NewReader(string(raw)))
@@ -292,6 +306,13 @@ func main() {
 						tag = "章"
 					}
 					e.write("</" + tag + ">")
+					// 第一個標題若就是書名，改成純文字，不要多一個目錄節點
+					if !e.titleDropped && e.bookTitle != "" &&
+						e.line.String() == "<"+tag+` u="文">`+esc(e.bookTitle)+"</"+tag+">" {
+						e.line.Reset()
+						e.write(esc(e.bookTitle))
+						e.titleDropped = true
+					}
 					e.headTag = ""
 					e.muluLevel = 0
 				case "note":

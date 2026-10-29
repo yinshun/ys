@@ -78,8 +78,16 @@ for (const l of align) {
   if (f[2] === f[5] && f[3] === f[6]) quote = get(pS, f[3]).slice(Number(f[4]), Number(f[7]));
   else {
     quote = get(pS, f[3]).slice(Number(f[4]));
-    if (f[2] === f[5]) for (let L = Number(f[3]) + 1; L < Number(f[15]); L++) quote += get(pS, String(L).padStart(2, '0'));
-    quote += get(pE, f[15]).slice(0, Number(f[16]));
+    // 這裡取的是「印順語料」的文字，長度要用印順座標（結束行 f[6]、結束字 f[7]）。
+    // 曾經誤用大正座標（f[15]／f[16]），把引文一路抓到第 20 行，
+    // 整個段落都被包進 <聯>（例如 38p0156a 那條 167 字的聯）。
+    if (f[2] === f[5]) {
+      for (let L = Number(f[3]) + 1; L < Number(f[6]); L++) quote += get(pS, String(L).padStart(2, '0'));
+    } else {
+      // 跨頁：把起始頁剩下的行全部收進來，再接下一個頁的結束行
+      for (let L = Number(f[3]) + 1; get(pS, String(L).padStart(2, '0')); L++) quote += get(pS, String(L).padStart(2, '0'));
+    }
+    quote += get(pE, f[6]).slice(0, Number(f[7]));
   }
   const q = hanOf(quote);
   if (q.length < 8) { notfound++; continue; }
@@ -151,27 +159,46 @@ function rawAt(line: number, han: number): number {
 }
 /** 引文的結尾通常在標點上（作者 2026-10-28）：把緊接的標點一起吃進 <聯> */
 const TAIL_PUNCT = /[，。！？；：、）」』】》〉…—·]/;
-function extendEnd(line: number, raw: number): number {
+/** 開括號：結束位置落在「下一個漢字之前」，會把下一句的「（《一起包進來 */
+const OPEN_PUNCT = /[「『（《〈【〔〖]/;
+function closeAt(line: number, raw: number): number {
   const s = lines[line];
-  let k = raw;
+  let k = Math.min(raw, s.length);
+  while (k > 0 && OPEN_PUNCT.test(s[k - 1])) k--;
   while (k < s.length && s[k] !== '<' && TAIL_PUNCT.test(s[k])) k++;
   return k;
 }
+/** 跨行引文在行尾收合時，也不要讓 </聯> 落在「（《 後面 */
+function clipEnd(line: number): number {
+  const s = lines[line];
+  let k = s.length;
+  while (k > 0 && OPEN_PUNCT.test(s[k - 1])) k--;
+  return k;
+}
+/** 標題行（<部>/<章>/…）：引文若跨到標題，<聯> 會把標題的結尾一起包進去，
+ * 目錄樹的標題就被切壞（例：`<項 u="文">第<聯 …>一項 歸敬</項></聯>`）。
+ * 這種一律不包；標題上的引文本來就少，寧可退回 q 比對。 */
+const HEADING = /^<(部|章|節|項|干|一|數|Ａ) u="文">/;
+let headingSkip = 0;
 for (const s of accepted) {
   const a = locate(s.vol, s.start), b = locate(s.vol, s.end - 1);
   if (!a || !b) continue;
+  let heading = false;
+  for (let m = a.line; m <= b.line; m++) if (HEADING.test(lines[m])) { heading = true; break; }
+  if (heading) { headingSkip++; continue; }
   if (a.line === b.line) {
     evs.push({ line: a.line, pos: rawAt(a.line, a.cjk), open: s.tag });
-    evs.push({ line: b.line, pos: extendEnd(b.line, rawAt(b.line, b.cjk + 1)) });
+    evs.push({ line: b.line, pos: closeAt(b.line, rawAt(b.line, b.cjk + 1)) });
   }
   else {
     evs.push({ line: a.line, pos: rawAt(a.line, a.cjk), open: s.tag });
-    evs.push({ line: a.line, pos: lines[a.line].length });
-    for (let m = a.line + 1; m < b.line; m++) { evs.push({ line: m, pos: 0, open: s.tag }); evs.push({ line: m, pos: lines[m].length }); }
+    evs.push({ line: a.line, pos: clipEnd(a.line) });
+    for (let m = a.line + 1; m < b.line; m++) { evs.push({ line: m, pos: 0, open: s.tag }); evs.push({ line: m, pos: clipEnd(m) }); }
     evs.push({ line: b.line, pos: 0, open: s.tag });
-    evs.push({ line: b.line, pos: extendEnd(b.line, rawAt(b.line, b.cjk + 1)) });
+    evs.push({ line: b.line, pos: closeAt(b.line, rawAt(b.line, b.cjk + 1)) });
   }
 }
+console.log('headingSkip', headingSkip);
 const byLine = new Map<number, Ev[]>();
 for (const e of evs) { const arr = byLine.get(e.line) ?? []; arr.push(e); byLine.set(e.line, arr); }
 /** 位置一律用「原始字元」索引（連標點一起算），否則引文裡的標點會把 </聯> 提前關掉 */

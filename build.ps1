@@ -14,5 +14,6 @@ New-Item -ItemType Directory -Force build | Out-Null
 go run ./cmd/y2adb -src $env:YS_XML -out 'build\ys-text.txt' -lbs 'build\ys.lbs.tsv' -img $env:YS_IMAGES
 bun run prep.ts        # 附錄（data/appendix.txt）＋後記（data/ys-epilog26.txt）
 bun run calibrate.ts   # 依對照表插入 <聯>
+bun run addj.ts        # 補字元級 j（把 q 對回大正頁面）
 bun run pack.ts        # 打包 ys.adb（含 logo 與正文插圖）
 Write-Host 'ys.adb rebuilt'

@@ -31,6 +31,9 @@ export const CORPUS_SVG = env('YS_CORPUS_SVG', 'D:/2023/yinshun-corpus/svg');
 /** 印順 → 大正藏的引文對照表。 */
 export const ALIGN = env('YS_ALIGN', 'D:/2026/offtext/alignments/yinshun-taisho.tsv');
 
+/** 大正藏 adb（`addj.ts` 用它算 `j` 的頁面字元索引；唯讀）。 */
+export const TAISHO = env('YS_TAISHO', 'D:/accelon3/taisho.adb');
+
 /** 打包後要覆寫的部署位置（Accelon26／accelon3 讀的那一份）。 */
 export const DEPLOY = env('YS_DEPLOY', 'D:/accelon3/ys.adb');
 

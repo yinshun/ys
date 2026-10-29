@@ -12,11 +12,12 @@
 
 | 路徑 | 說明 |
 |---|---|
-| `build.ps1` | 一鍵重建：`y2adb` → `prep` → `calibrate` → `pack` |
+| `build.ps1` | 一鍵重建：`y2adb` → `prep` → `calibrate` → `addj` → `pack` |
 | `paths.ts` | 所有外部路徑（可用環境變數覆寫） |
 | `cmd/y2adb/` | CBETA Y 部 TEI → Accelon3 文字（Go，只用標準庫） |
 | `prep.ts` | 併入附錄與後記，補 `<章>/<節>/<項>` 的 `u="文"` |
 | `calibrate.ts` | 依對照表把大正藏引文包成 `<聯 i q>`（字元級鏈結） |
+| `addj.ts` | 把 `q` 對回大正頁面，補 `j="起-訖"`（長引文只取前 80 字；只加 `j`，`q` 與正文不動） |
 | `pack.ts` | 用 `adb-converter` 的 `authorAdb` 打包 `ys.adb`（含 2 張 logo ＋ 75 張插圖） |
 | `images.ts` | 一次性：CBR2X-figures／舊 corpus 的圖 → `Y-images`（資源名 `svg/YNN/…`） |
 | `extract-appendix.ts` | 一次性：從舊 `yinshun.adb` 重抽附錄 |
@@ -39,8 +40,8 @@ pwsh D:\2026\ys\build.ps1
 
 ## 產物
 
-`build/ys-text.txt` → `build/ys-text-full.txt` → `build/ys-linked.txt` → `build/ys-linked.adb`，
-最後覆寫部署位置 `D:\accelon3\ys.adb`（可用 `YS_DEPLOY` 改）。
+`build/ys-text.txt` → `build/ys-text-full.txt` → `build/ys-linked.txt`（含 `j`）→ 直接寫
+`D:\accelon3\ys.adb`（可用 `YS_DEPLOY` 改；工作區不留 adb，跑 `pack.ts` 就會覆寫它）。
 
-預期：`dbname ys`、`linecount 307141`、`25.9 MiB`、`resources 77`（2 logo ＋ 75 圖）、
-`<聯>` 25,920、`andtagid 0`。
+預期：`dbname ys`、`linecount 307141`、`24.5 MiB`、`resources 77`（2 logo ＋ 75 圖）、
+`<聯>` 17,870、`j` 16,683、`andtagid 0`。

@@ -56,10 +56,10 @@ const out = await authorAdb({
   log: (m) => console.error(m),
 });
 const buf = Buffer.from(out.file); buf.writeUInt32LE(0, 100);
-writeFileSync(join(BUILD, 'ys-linked.adb'), buf);
-// 直接覆寫部署檔偶爾會拿到 EUNKNOWN（檔案被 Accelon26 開著、
-// 或 Defender 正在掃 26 MB 的新檔）。先寫 .new 再改名，是同一顆磁碟上的原子替換。
+// 產物只寫部署位置（D:\accelon3\ys.adb）；工作區不留 ys.adb。
+// 直接覆寫偶爾會拿到 EUNKNOWN（檔案被 Accelon26 開著、或 Defender 正在掃 26 MB 的新檔）。
+// 先寫 .new 再改名，是同一顆磁碟上的原子替換。
 const deployed = DEPLOY;
 writeFileSync(deployed + '.new', buf);
 renameSync(deployed + '.new', deployed);
-console.log('wrote ys.adb', (buf.length / 1048576).toFixed(1), 'MiB, lines', lines.length);
+console.log('wrote', deployed, (buf.length / 1048576).toFixed(1), 'MiB, lines', lines.length);
