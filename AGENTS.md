@@ -25,20 +25,10 @@
 
 ## 現況（2026-10-29 23:01）
 
-- `D:\accelon3\ys.adb`（本機測試）＝最新建置：26,109,364 bytes、
+- `D:\accelon3\ys.adb` ＝最新建置，**已發布**到主站＋鏡像（2026-10-29 23:43）：26,109,364 bytes、
   SHA256 `0C91406A…`、`linecount 307141`、`<聯>` 17,870、`j` 16,683。
 - 目次層級改成 18 層鏈（`<書 t="部,章,節,項,干,一,數,Ａ…">`）：`<cb:mulu level>`
   1→部、2→章、3→節、4→項、5→干、6→一、7→數、8 以後→ＡＢＣ…，與 `yinshun.adb` 的目錄一致；第一個 `<head>` 等於書名時不開節點；引文不跨標題行（`calibrate` 的 `headingSkip`）。
 - `pack.ts` 只寫部署位置，工作區不留 `ys.adb`。
 - `D:\accelon3\tx.adb` 目前與 `D:\2026\adb-converter\build\tx.adb` 一致；
   本 repo 尚無 tx 的建置流程。
-
-## 待辦：官網 ys 頁面與 adb 一起發布
-
-線上 `https://shutonggui.cn/accelon26/adb/ys.adb` 仍是舊版（27,205,727 bytes），
-官網說明頁也就還是舊數字。等 `adb-converter` 跑完 `retrofit-j` 後，一次做完：
-
-1. 改 `D:\2026\adb-converter\docs\adb\ys.md`：大正鏈結 25,918→17,916、
-   `j` 的條數、檔案大小 25.9→約 24.5 MiB、§五 的版本與下載。
-2. `bun run ts/tools/md-page.ts --md docs/adb/ys.md --out www/adb/ys.html --title "ys.adb 與 yinshun.adb 有什麼不同"`。
-3. 連 `ys.adb` 一起上傳主站＋鏡像（等使用者說「發布新 adb」）。
