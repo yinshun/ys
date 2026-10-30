@@ -78,9 +78,11 @@ go run ./cmd/y2adb -src 'D:\2026\xml-p5\Y' `
 | `<note>` | 獨立一行 `〔註n〕` ＋內容（n 空時用序號） |
 | `<app>` | 只留 `<lem>` 底本文字，`<rdg>` 略過 |
 | `<graphic url="../figures/Y/Y08p0052_01.svg"/>` | `<圖 n="svg/Y08/Y08p0052_01.svg"/>`（圖檔要存在，見 §2.4） |
+| `<anchor n="0037056"/>`（腳註引用） | `<註 n="37.085"/>`（`<書id>.<序>`，與段末的 `<釋>` 對應） |
+| `<back>` 的 `<cb:div type="yinshun-notes">` | 該段的 `<段/><釋 n="37.085">`注文`</釋>`；注文裡的 `<ref target="#vol:12;page:p1081a">` 轉成 `<聯 i="taisho?12p1081a">` |
 | `<note>`／`<app>` 以外的元素 | 只取文字，標籤丟棄 |
 
-`<anchor>`、`<g>`、`<cb:mulu>`、`<back>` 一律跳過。
+`<g>`、`<cb:mulu>` 一律跳過；`<anchor>` 轉成 `<註>`，`<back>` 只讀 `type="yinshun-notes"`（印順自己的腳註，見上表與 §8）。
 
 #### 補 `u="文"`：外部規則檔 `data/u-attrs.txt`
 
@@ -299,7 +301,7 @@ bun run calibrate.ts
 ```text
 spans 10474  exact 9723  relaxed 751  notfound 3654
 accepted 9719
-links 17870
+links 29396
 ```
 
 `notfound` 多半是轉述、或兩邊文字差異過大。
@@ -329,8 +331,8 @@ bun run addj.ts
 - 對不上（版本差異、轉述、跨頁）就不寫 `j`，閱讀器退回用 `q` 比對。
 - 依賴 `D:\accelon3\taisho.adb`（唯讀，可用 `YS_TAISHO` 覆寫），跑一次約 6 秒。
 
-2026-10-29 實測：`<聯>` 17,870；帶 `i="taisho?…"` 與 `q` 的 17,868 條；
-**補上 `j` 16,683 條**（其中 1,730 條用寬鬆對位），沒有 `j` 的 1,185 條。
+2026-10-30 實測：`<聯>` 29,396（正文 17,952＋註 11,444）；帶 `q` 的 17,950 條；
+**補上 `j` 16,763 條**（其中 1,738 條用寬鬆對位），沒有 `j` 的 1,187 條。
 `38p0156a` → `taisho?8p562b` 的 `j="293-324"`。
 
 > 與 `build/ys-j-verified-keepq.adb` 的關係：那 16,086 條 `j` 與本流程**逐條相同**
@@ -362,7 +364,7 @@ bun run pack.ts
 - **直接寫部署位置** `D:\accelon3\ys.adb`（先寫 `.new` 再改名，避開檔案被開著時的
   `EUNKNOWN`）。工作區不留 `ys.adb`；跑 `pack.ts` 就會覆寫它（本機測試可以，上傳官網要另外說）。
 
-預期：`dbname ys`、`linecount 307141`、`24.5 MiB`、`resources 77`（2 張 logo ＋ 75 張圖）、
+預期：`dbname ys`、`linecount 329391`、`27.2 MiB`、`resources 77`（2 張 logo ＋ 75 張圖）、
 `<聯>` 17,916。
 
 ---
@@ -376,7 +378,7 @@ go run ./cmd/abx inspect 'D:\accelon3\ys.adb'
 bun run ts/tools/probe-adb.ts --adb 'D:\accelon3\ys.adb' --query 涅槃
 ```
 
-應看到：`dbname "ys"`、`linecount 307141`、`andtagid 0`，
+應看到：`dbname "ys"`、`linecount 329391`、`andtagid 0`，
 檢索有結果且 `consoleErrors: null`。
 
 目錄第一項是「般若經講記」，最後一項是「2026年AI版後記」（章名「後記」）。
@@ -413,7 +415,7 @@ pwsh D:\2026\ys\build.ps1
 5. **頁元不是冊**：70 是頁元數，不是 44 冊；`ys` 的 73 頁元是 CBETA 的 a/b/y/z 前綴。
 6. **`<註>` 是腳註標記**：Accelon26 會把 `<註>內容</註>` 的內容隱藏，
    所以 `ys` 的註用純文字 `〔註n〕`，不要用 `<註>` 標籤。
-7. **`<back>` 未收**：CBETA 的校注／新增校注（約 21 萬字）目前不入 `ys.adb`。
+7. **`<back>` 只收印順註**：`type="yinshun-notes"` 的 `<note>` 已收（2026-10-30，11,125 條，段末輸出 `<釋>`）；`apparatus`（校勘）與 `add-notes` 仍不入 `ys.adb`。
 8. **`appendix` 來源是 `yinshun.adb`**：不要把 `D:\accelon3\yinshun.adb` 刪掉或覆蓋。
 
 ---

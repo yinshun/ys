@@ -38,7 +38,7 @@ let cur = 0;
 for (let i = 0; i < lines.length; i++) { if (lines[i].includes('<檔 n="')) { const m = /<檔 n="Y(\d+)/.exec(lines[i]); cur = m ? Number(m[1]) : 0; } volOfLine[i] = cur; }
 const volText = new Map<number, string>(); const volLines = new Map<number, number[]>(); const volStarts = new Map<number, number[]>();
 for (let v = 1; v <= 44; v++) { volText.set(v, ''); volLines.set(v, []); volStarts.set(v, []); }
-for (let i = 0; i < lines.length; i++) { const v = volOfLine[i]; if (!v) continue; const t = volText.get(v)!; volStarts.get(v)!.push(t.length); volLines.get(v)!.push(i); volText.set(v, t + lineCjk[i]); }
+for (let i = 0; i < lines.length; i++) { const v = volOfLine[i]; if (!v) continue; if (lines[i].startsWith('<段/><釋')) continue; const t = volText.get(v)!; volStarts.get(v)!.push(t.length); volLines.get(v)!.push(i); volText.set(v, t + lineCjk[i]); }
 function locate(v: number, pos: number): { line: number; cjk: number } | null {
   const starts = volStarts.get(v)!, ls = volLines.get(v)!;
   if (!starts.length) return null;
@@ -193,7 +193,7 @@ for (const s of accepted) {
   else {
     evs.push({ line: a.line, pos: rawAt(a.line, a.cjk), open: s.tag });
     evs.push({ line: a.line, pos: clipEnd(a.line) });
-    for (let m = a.line + 1; m < b.line; m++) { evs.push({ line: m, pos: 0, open: s.tag }); evs.push({ line: m, pos: clipEnd(m) }); }
+    for (let m = a.line + 1; m < b.line; m++) { if (lines[m].startsWith('<段/><釋')) continue; evs.push({ line: m, pos: 0, open: s.tag }); evs.push({ line: m, pos: clipEnd(m) }); }
     evs.push({ line: b.line, pos: 0, open: s.tag });
     evs.push({ line: b.line, pos: closeAt(b.line, rawAt(b.line, b.cjk + 1)) });
   }

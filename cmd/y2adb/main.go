@@ -52,6 +52,11 @@ type emitter struct {
 	// 這本書的書名與「書名重複的標題」是否已經處理（第一個 <head> 常常就是書名）
 	bookTitle    string
 	titleDropped bool
+	// 腳註：CBETA <back> 的 yinshun-notes（印順自己的註），n（CBETA 編號）→ 已轉好的注文
+	notes     map[string]string
+	noteShort map[string]string // CBETA n → 短編號（<書>.<序>，顯示用）
+	notePend  []string          // 這一段出現過的註，等 </p> 一起輸出 <釋>
+	inHead    bool
 }
 
 func (e *emitter) nl() {
@@ -70,6 +75,138 @@ func (e *emitter) nl() {
 }
 
 func (e *emitter) write(s string) { e.line.WriteString(s) }
+
+// ---------------------------------------------------------------- 腳註
+
+var refTargetRe = regexp.MustCompile(`#vol:(\d+);page:p([0-9a-zA-Z]+)`)
+
+func taishoFromTarget(target string) string {
+	m := refTargetRe.FindStringSubmatch(target)
+	if m == nil {
+		return ""
+	}
+	return "taisho?" + m[1] + "p" + m[2]
+}
+
+// 注文的空白：CBETA 在標籤之間有換行與縮排，中文不該因此多出空格，
+// 只有兩邊都是 ASCII（英文、數字）時才留一個空格。
+func tidyNote(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if s == "" {
+		return ""
+	}
+	r := []rune(s)
+	var b strings.Builder
+	for i, c := range r {
+		if c == ' ' {
+			var p, n rune
+			if i > 0 {
+				p = r[i-1]
+			}
+			if i+1 < len(r) {
+				n = r[i+1]
+			}
+			if p > 0 && p < 128 && n > 0 && n < 128 {
+				b.WriteRune(c)
+			}
+			continue
+		}
+		b.WriteRune(c)
+	}
+	return b.String()
+}
+
+// CBETA <back> 裡 type="yinshun-notes" 的 <note>：印順自己的腳註。
+// 注文轉成 Accelon3 的形式：<ref target="#vol:12;page:p1081a">…</ref>
+// → <聯 i="taisho?12p1081a">…</聯>，一個引用一條聯。
+func parseYinshunNotes(raw []byte) map[string]string {
+	out := map[string]string{}
+	dec := xml.NewDecoder(strings.NewReader(string(raw)))
+	inNotes, inNote := false, false
+	id := ""
+	var refOpen []bool
+	var cur strings.Builder
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			switch t.Name.Local {
+			case "div":
+				if attr(t.Attr, "type") == "yinshun-notes" {
+					inNotes = true
+				}
+			case "note":
+				if inNotes {
+					id = attr(t.Attr, "n")
+					inNote = id != ""
+					cur.Reset()
+					refOpen = refOpen[:0]
+				}
+			case "ref":
+				if inNote {
+					i := taishoFromTarget(attr(t.Attr, "target"))
+					if i != "" {
+						cur.WriteString(`<聯 i="` + i + `">`)
+					}
+					refOpen = append(refOpen, i != "")
+				}
+			}
+		case xml.EndElement:
+			switch t.Name.Local {
+			case "div":
+				inNotes = false
+			case "note":
+				if inNote {
+					out[id] = strings.TrimSpace(cur.String())
+				}
+				inNote, id = false, ""
+			case "ref":
+				if inNote && len(refOpen) > 0 {
+					if refOpen[len(refOpen)-1] {
+						cur.WriteString("</聯>")
+					}
+					refOpen = refOpen[:len(refOpen)-1]
+				}
+			}
+		case xml.CharData:
+			if inNote {
+				cur.WriteString(tidyNote(string(t)))
+			}
+		}
+	}
+	return out
+}
+
+// 正文出現 <anchor n="…"/>：寫 <註 n="…"/>，並記下這段要輸出的注文
+func (e *emitter) markNote(n string) {
+	short, ok := e.noteShort[n]
+	if !ok {
+		e.noteSeq++
+		short = fmt.Sprintf("%d.%03d", e.vol, e.noteSeq)
+		e.noteShort[n] = short
+	}
+	e.write(`<註 n="` + short + `"/>`)
+	e.stats["註"]++
+	e.notePend = append(e.notePend, n)
+}
+
+// 一段結束：把這段引用到的注文依序寫成 <段/><釋 n="…">…</釋>
+func (e *emitter) flushNotes() {
+	for _, n := range e.notePend {
+		body, ok := e.notes[n]
+		if !ok {
+			continue
+		}
+		e.nl()
+		e.write(`<段/><釋 n="` + e.noteShort[n] + `">` + body + `</釋>`)
+		e.stats["釋"]++
+		e.nl()
+	}
+	e.notePend = e.notePend[:0]
+}
 
 /**
  * 開一個標題。層級來自前面的 <cb:mulu level="N">，對到 tierNames：
@@ -172,6 +309,11 @@ func main() {
 		e.titleDropped = false
 		e.stats["書"]++
 		e.nl()
+		// 先收 <back> 的印順腳註（n → 注文），正文的 <anchor> 才能寫 <註> 並掛 <釋>
+		e.notes = parseYinshunNotes(raw)
+		e.noteShort = map[string]string{}
+		e.noteSeq = 0
+		e.notePend = e.notePend[:0]
 		dec := xml.NewDecoder(strings.NewReader(string(raw)))
 		inBody := false
 		skip := 0
@@ -213,7 +355,17 @@ func main() {
 					e.stats["app"]++
 				case "rdg":
 					skip = 1
-				case "anchor", "g":
+				case "anchor":
+					// CBETA 的腳註錨點：<anchor n="0037056"/> → <註 n="5.056"/>
+					if !e.inHead {
+						if n := attr(t.Attr, "n"); n != "" {
+							if _, ok := e.notes[n]; ok {
+								e.markNote(n)
+							}
+						}
+					}
+					skip = 1
+				case "g":
 					skip = 1
 				case "mulu":
 					// 目次層級：1＝章、2＝節、3＝項。文字另有 <head>，這裡只記層級。
@@ -286,9 +438,11 @@ func main() {
 					e.stats["段"]++
 				case "head":
 					e.nl()
+					e.inHead = true
 					e.openHeading()
 				case "jhead":
 					e.nl()
+					e.inHead = true
 					e.openHeading()
 				}
 			case xml.EndElement:
@@ -301,6 +455,7 @@ func main() {
 				}
 				switch t.Name.Local {
 				case "head", "jhead":
+					e.inHead = false
 					tag := e.headTag
 					if tag == "" {
 						tag = "章"
@@ -317,7 +472,10 @@ func main() {
 					e.muluLevel = 0
 				case "note":
 					e.nl()
+				case "p":
+					e.flushNotes()
 				case "body":
+					e.flushNotes()
 					inBody = false
 				}
 			case xml.CharData:

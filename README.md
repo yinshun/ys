@@ -43,5 +43,5 @@ pwsh D:\2026\ys\build.ps1
 `build/ys-text.txt` → `build/ys-text-full.txt` → `build/ys-linked.txt`（含 `j`）→ 直接寫
 `D:\accelon3\ys.adb`（可用 `YS_DEPLOY` 改；工作區不留 adb，跑 `pack.ts` 就會覆寫它）。
 
-預期：`dbname ys`、`linecount 307141`、`24.5 MiB`、`resources 77`（2 logo ＋ 75 圖）、
-`<聯>` 17,870、`j` 16,683、`andtagid 0`。
+預期：`dbname ys`、`linecount 329391`、`27.2 MiB`、`resources 77`（2 logo ＋ 75 圖）、
+`<聯>` 29,396（正文 17,952＋註 11,444）、`j` 16,763、`andtagid 0`。
