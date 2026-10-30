@@ -301,7 +301,7 @@ bun run calibrate.ts
 ```text
 spans 10474  exact 9723  relaxed 751  notfound 3654
 accepted 9719
-links 29396
+links 30022
 ```
 
 `notfound` 多半是轉述、或兩邊文字差異過大。
@@ -332,8 +332,8 @@ bun run addj.ts
 - 對不上（版本差異、轉述、跨頁）就不寫 `j`，閱讀器退回用 `q` 比對。
 - 依賴 `D:\accelon3\taisho.adb`（唯讀，可用 `YS_TAISHO` 覆寫），跑一次約 6 秒。
 
-2026-10-30 實測：`<聯>` 29,396（正文 17,952＋註 11,444）；帶 `q` 的 17,950 條；
-**補上 `j` 16,763 條**（其中 1,738 條用寬鬆對位），沒有 `j` 的 1,187 條。
+2026-10-30 實測：`<聯>` 30,022（正文 18,578＋註 11,444）；帶 `q` 的 18,576 條；
+**補上 `j` 17,395 條**（其中 1,738 條用寬鬆對位），沒有 `j` 的 1,181 條。
 `38p0156a` → `taisho?8p562b` 的 `j="293-324"`。
 
 > 與 `build/ys-j-verified-keepq.adb`（2026-10-29 的參考產物）的關係：短引文那部分
@@ -366,7 +366,7 @@ bun run pack.ts
 - **直接寫部署位置** `D:\accelon3\ys.adb`（先寫 `.new` 再改名，避開檔案被開著時的
   `EUNKNOWN`）。工作區不留 `ys.adb`；跑 `pack.ts` 就會覆寫它（本機測試可以，上傳官網要另外說）。
 
-預期：`dbname ys`、`linecount 329391`、`27.2 MiB`、`resources 77`（2 張 logo ＋ 75 張圖）、
+預期：`dbname ys`、`linecount 329391`、`27.3 MiB`、`resources 77`（2 張 logo ＋ 75 張圖）、
 `<聯>` 17,916。
 
 ---

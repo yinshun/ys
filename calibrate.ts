@@ -120,6 +120,21 @@ for (const l of align) {
   }
   const anchor = `${Number(f[8])}p${Number(f[9])}${f[10]}`;
   const tq = (qById.get(f[0]) ?? '').slice(0, 160);
+  // 對照表抽出的引文有時比標籤上的 q 短幾個字（37p0007a：到「禁」就停，
+  // 「呪藏」被留在聯外）。先用標籤上的 q 把結尾補滿。
+  {
+    const tqh = hanOf(tq);
+    let L = 0;
+    while (L < tqh.length && best + L < hay.length && hay[best + L] === tqh[L]) L++;
+    if (L > bestLen) bestLen = L;
+    // 引文裡有省略號時，尾巴會重新對上（37p0007a：「…雜集藏、禁」之後才是「呪藏…」）。
+    // 用 q 的結尾 12 字往前找，60 字內找到就補到那裡為止。
+    const tail = tqh.slice(-12);
+    if (tail.length === 12) {
+      const at = hay.indexOf(tail, Math.max(0, best + bestLen - 2));
+      if (at >= 0 && at - best < bestLen + 60 && at + 12 > best + bestLen) bestLen = at + 12 - best;
+    }
+  }
   spans.push({ vol: u.fileNo, start: best, end: best + bestLen, tag: `<聯 i="taisho?${anchor}" q="${tq}">` });
   if (mode === 'exact') exact++; else relaxed++;
 }
