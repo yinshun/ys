@@ -134,9 +134,9 @@ for (let li = 0; li < lines.length; li++) {
     if (!i.startsWith('taisho?')) continue;
     if (!q) { skipped++; noJ.push({ i, q: '' }); continue; }
     links++;
-    // 與 adb-converter 的 retrofit-j 一致：精確比對只取 q 的前 80 字，對不上再寬鬆對位。
-    // 長引文的 j 只塗前 80 字（作者 2026-10-29 指定：跟參考產物一致）。
-    const qh = canonAll(hanOf(q)).slice(0, 80);
+    // 取 q（最多 160 字）整段比對，對不上再寬鬆對位；不再截成 80 字。
+    // 長引文也要整段塗滿（作者 2026-10-30：37p0007a 那條到「呪藏」就斷了）。
+    const qh = canonAll(hanOf(q)).slice(0, 160); // q 本身最多 160 字（calibrate 截的），這裡等於不截斷
     if (qh.length < 4) { skipped++; noJ.push({ i, q }); continue; }
     const { raw, canon: ph } = await pageText(i.slice(7));
     if (!ph) { skipped++; noJ.push({ i, q }); continue; }
