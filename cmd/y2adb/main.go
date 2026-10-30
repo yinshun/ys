@@ -56,7 +56,12 @@ type emitter struct {
 	notes     map[string]string
 	noteShort map[string]string // CBETA n → 短編號（<書>.<序>，顯示用）
 	notePend  []string          // 這一段出現過的註，等 </p> 一起輸出 <釋>
-	inHead    bool
+	// 正文裡的行內註（<note place="inline2">…</note>，例如「方等泥洹經
+	// 〔註82〕竺法護釋法顯」）：轉成 <註>/<釋> 時用來收集文字（2026-10-30）
+	noteKey     string
+	noteBuf     strings.Builder
+	noteRefOpen []bool
+	inHead      bool
 }
 
 func (e *emitter) nl() {
@@ -341,15 +346,37 @@ func main() {
 				case "body":
 					inBody = true
 				case "note":
-					// CBETA 的校勘／註記：保留內容，獨立成行（不用 <註> 標籤，避免被當成腳註標記隱藏）
+					// CBETA 的行內註（<note place="inline2">…</note>，例如
+					// 「方等泥洹經<note>竺法護釋法顯</note>：右一經…」）。
+					// 2026-10-30 起轉成真正的腳註：正文寫 <註 n="…"/>，
+					// 內容收集起來，flushNotes() 在段末輸出 <釋 n="…">…</釋>，
+					// 這樣 hover／點擊／釋文都跟其他註一樣（以前是獨立一行的
+					// 純文字「〔註82〕…」，句子會被切斷，也沒有釋文）。
 					e.noteSeq++
-					n := attr(t.Attr, "n")
-					if n == "" {
-						n = fmt.Sprintf("%d", e.noteSeq)
+					key := attr(t.Attr, "n")
+					if key == "" {
+						key = fmt.Sprintf("inline%d", e.noteSeq)
 					}
-					e.nl()
-					e.write("〔註" + n + "〕")
+					short := e.noteShort[key]
+					if short == "" {
+						short = fmt.Sprintf("%d.%03d", e.vol, e.noteSeq)
+						e.noteShort[key] = short
+					}
+					e.write(`<註 n="` + short + `"/>`)
 					e.stats["註"]++
+					e.notePend = append(e.notePend, key)
+					e.noteKey = key
+					e.noteBuf.Reset()
+					e.noteRefOpen = e.noteRefOpen[:0]
+				case "ref":
+					// 行內註裡的 <ref target="#vol:12;page:p1081a">：收成 <聯>
+					if e.noteKey != "" {
+						i := taishoFromTarget(attr(t.Attr, "target"))
+						if i != "" {
+							e.noteBuf.WriteString(`<聯 i="` + i + `">`)
+						}
+						e.noteRefOpen = append(e.noteRefOpen, i != "")
+					}
 				case "app":
 					// 校勘層：只留底本 <lem>，異文 <rdg> 略過
 					e.stats["app"]++
@@ -471,7 +498,19 @@ func main() {
 					e.headTag = ""
 					e.muluLevel = 0
 				case "note":
-					e.nl()
+					if e.noteKey != "" {
+						e.notes[e.noteKey] = tidyNote(e.noteBuf.String())
+						e.noteKey = ""
+						e.noteBuf.Reset()
+						e.noteRefOpen = e.noteRefOpen[:0]
+					}
+				case "ref":
+					if e.noteKey != "" && len(e.noteRefOpen) > 0 {
+						if e.noteRefOpen[len(e.noteRefOpen)-1] {
+							e.noteBuf.WriteString("</聯>")
+						}
+						e.noteRefOpen = e.noteRefOpen[:len(e.noteRefOpen)-1]
+					}
 				case "p":
 					e.flushNotes()
 				case "body":
@@ -484,6 +523,10 @@ func main() {
 				}
 				s := clean(string(t))
 				if s == "" {
+					continue
+				}
+				if e.noteKey != "" {
+					e.noteBuf.WriteString(s)
 					continue
 				}
 				e.write(esc(s))

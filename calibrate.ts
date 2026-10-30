@@ -131,8 +131,23 @@ for (const l of align) {
     // 用 q 的結尾 12 字往前找，60 字內找到就補到那裡為止。
     const tail = tqh.slice(-12);
     if (tail.length === 12) {
+      // 先找「結尾之後才開始」的尾巴（引文有省略號時，尾巴會重新對上；
+      // 37p0007a 就是這種，差 19 字）。
       const at = hay.indexOf(tail, Math.max(0, best + bestLen - 2));
-      if (at >= 0 && at - best < bestLen + 60 && at + 12 > best + bestLen) bestLen = at + 12 - best;
+      if (at >= 0 && at - best < bestLen + 60 && at + 12 > best + bestLen) {
+        bestLen = at + 12 - best;
+      } else {
+        // 再找「尾巴從結尾之前就開始」的情況（引文中間插字，例如
+        // 「南印度（似乎就是烏荼國）王灌頂師…」，36.1946 差 2 字）。
+        // 這種只補一點點，避免把別條引文吞掉。
+        for (let from = Math.max(0, best + bestLen - 12); from <= best + bestLen; from++) {
+          const at2 = hay.indexOf(tail, from);
+          if (at2 < 0) break;
+          const grow = at2 + 12 - (best + bestLen);
+          if (grow > 0 && grow <= 3) { bestLen += grow; break; }
+          if (at2 > best + bestLen) break;
+        }
+      }
     }
   }
   spans.push({ vol: u.fileNo, start: best, end: best + bestLen, tag: `<聯 i="taisho?${anchor}" q="${tq}">` });
