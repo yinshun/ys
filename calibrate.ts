@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ALIGN, BUILD, CORPUS_XML, ROOT } from './paths';
+import { isHan } from '../adb-converter/ts/src/accelon26/han';
 
 const cdir = CORPUS_XML;
 const files = readdirSync(cdir).filter(f => /^y\d+\.xml$/.test(f) && !/^y00\.xml$/.test(f)).sort();
@@ -17,7 +18,6 @@ for (const f of files) {
   flush();
 }
 const byVol = new Map(units.map(u => [u.vol, u]));
-const isHan = (c: string) => /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(c);
 const hanOf = (s: string) => Array.from(s).filter(isHan).join('');
 const lineMaps = new Map<number, Map<string, string>>();
 for (const f of files) {
@@ -26,7 +26,15 @@ for (const f of files) {
   const body = raw.slice(raw.indexOf('<body'), raw.indexOf('</body>'));
   const parts = body.split(/<lb\s*\n?\s*n="([^"]*)"\s*\/>/);
   const map = new Map<string, string>();
-  for (let i = 1; i + 1 < parts.length; i += 2) if (!map.has(parts[i])) map.set(parts[i], hanOf(parts[i + 1].replace(/<[^>]*>/g, '')));
+  for (let i = 1; i + 1 < parts.length; i += 2) if (!map.has(parts[i])) {
+    // <choice><orig>删</orig><reg>刪</reg></choice> 只留 reg/corr，否則會變成「删刪」，
+    // 引文對位就停在「或致」（a-ys-07508）。
+    const clean = parts[i + 1]
+      .replace(/<orig\b[^>]*>[\s\S]*?<\/orig>/g, '')
+      .replace(/<sic\b[^>]*>[\s\S]*?<\/sic>/g, '')
+      .replace(/<[^>]*>/g, '');
+    map.set(parts[i], hanOf(clean));
+  }
   lineMaps.set(fileNo, map);
 }
 const text = readFileSync(join(BUILD, 'ys-text-full.txt'), 'utf8');
@@ -175,10 +183,12 @@ const evs: Ev[] = [];
 /** 行內第 k 個漢字在原始字串裡的位置（標記與標點都不算） */
 function hanToRaw(line: string): number[] {
   const out: number[] = [];
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '<') { const gt = line.indexOf('>', i); if (gt < 0) break; i = gt; continue; }
-    if (isHan(c)) out.push(i);
+  for (let i = 0; i < line.length; ) {
+    if (line[i] === '<') { const gt = line.indexOf('>', i); if (gt < 0) break; i = gt + 1; continue; }
+    const cp = line.codePointAt(i)!;
+    const ch = String.fromCodePoint(cp);
+    if (isHan(ch)) out.push(i);
+    i += cp > 0xffff ? 2 : 1;
   }
   return out;
 }
@@ -216,17 +226,9 @@ for (const s of accepted) {
   let heading = false;
   for (let m = a.line; m <= b.line; m++) if (HEADING.test(lines[m])) { heading = true; break; }
   if (heading) { headingSkip++; continue; }
-  if (a.line === b.line) {
-    evs.push({ line: a.line, pos: rawAt(a.line, a.cjk), open: s.tag });
-    evs.push({ line: b.line, pos: closeAt(b.line, rawAt(b.line, b.cjk + 1)) });
-  }
-  else {
-    evs.push({ line: a.line, pos: rawAt(a.line, a.cjk), open: s.tag });
-    evs.push({ line: a.line, pos: clipEnd(a.line) });
-    for (let m = a.line + 1; m < b.line; m++) { if (lines[m].startsWith('<段/><釋')) continue; evs.push({ line: m, pos: 0, open: s.tag }); evs.push({ line: m, pos: clipEnd(m) }); }
-    evs.push({ line: b.line, pos: 0, open: s.tag });
-    evs.push({ line: b.line, pos: closeAt(b.line, rawAt(b.line, b.cjk + 1)) });
-  }
+  // 2026-10-31（作者）：不要用長超連結，引文開頭放一個「大正」按鈕就好；
+  // 引文本身用 <引> 楷體標示（y2adb 產生），不再靠 <聯> 的底線。
+  evs.push({ line: a.line, pos: rawAt(a.line, a.cjk), open: s.tag + '大正</聯>' });
 }
 console.log('headingSkip', headingSkip);
 const byLine = new Map<number, Ev[]>();
@@ -248,3 +250,4 @@ function wrap(line: string, list: Ev[]): string {
 for (const [idx, list] of byLine) lines[idx] = wrap(lines[idx], list);
 writeFileSync(join(BUILD, 'ys-linked.txt'), lines.join('\n') + '\n');
 console.log('links', lines.reduce((n, l) => n + (l.match(/<聯 /g) || []).length, 0));
+

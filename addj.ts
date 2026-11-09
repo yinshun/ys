@@ -17,15 +17,18 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AdbReader, SyncIO } from '../adb-converter/ts/src/accelon26/adb';
+import { isHan } from '../adb-converter/ts/src/accelon26/han';
 import { expandToken } from '../adb-converter/ts/src/accelon26/variants';
 import { BUILD, TAISHO } from './paths';
 
-const isHan = (c: string): boolean => /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(c);
 function hanOf(s: string): string {
   let o = '';
-  for (let i = 0; i < s.length; i++) {
-    if (s[i] === '<') { const gt = s.indexOf('>', i); if (gt < 0) break; i = gt; continue; }
-    if (isHan(s[i])) o += s[i];
+  for (let i = 0; i < s.length; ) {
+    if (s[i] === '<') { const gt = s.indexOf('>', i); if (gt < 0) break; i = gt + 1; continue; }
+    const cp = s.codePointAt(i)!;
+    const ch = String.fromCodePoint(cp);
+    if (isHan(ch)) o += ch;
+    i += cp > 0xffff ? 2 : 1;
   }
   return o;
 }
@@ -178,3 +181,4 @@ console.log(`聯 ${tags}；有 q 的 ${links}；補 j ${added}（寬鬆 ${fuzzy}
 if (noJ.length) console.log('沒 j 的前 10 條:', JSON.stringify(noJ.slice(0, 10)));
 tr.close?.();
 process.exit(0);
+

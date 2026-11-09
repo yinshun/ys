@@ -28,8 +28,8 @@ export const CORPUS_XML = env('YS_CORPUS_XML', 'D:/2023/yinshun-corpus/xml');
 /** 舊 corpus 的 svg（只有 `images.ts` 會用到）。 */
 export const CORPUS_SVG = env('YS_CORPUS_SVG', 'D:/2023/yinshun-corpus/svg');
 
-/** 印順 → 大正藏的引文對照表。 */
-export const ALIGN = env('YS_ALIGN', 'D:/2026/offtext/alignments/yinshun-taisho.tsv');
+/** 印順 → 大正藏的引文對照表（2026-10-30 從 offtext 移入本 repo）。 */
+export const ALIGN = env('YS_ALIGN', join(ROOT, 'alignments/yinshun-taisho.tsv'));
 
 /** 大正藏 adb（`addj.ts` 用它算 `j` 的頁面字元索引；唯讀）。 */
 export const TAISHO = env('YS_TAISHO', 'D:/accelon3/taisho.adb');

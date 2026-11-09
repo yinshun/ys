@@ -26,7 +26,7 @@
 - Go（`go run`）、Bun、PowerShell
 - 網路（第一次抓 CBETA Y）
 - 舊版 `D:\accelon3\yinshun.adb`（附錄來源，見 §4）
-- 對照表 `D:\2026\offtext\alignments\yinshun-taisho.tsv`
+- 對照表 `D:\2026\ys\alignments\yinshun-taisho.tsv`（已在本 repo）
 - 語料 `D:\2023\yinshun-corpus\xml\y*.xml`（頁元與引文定位用）
 
 工作目錄一律是 `D:\2026\ys`。
@@ -77,9 +77,11 @@ go run ./cmd/y2adb -src 'D:\2026\xml-p5\Y' `
 | `<head>`、`<jhead>` | `<章 u="文">…</章>`；層級看前面的 `<cb:mulu level>`：1→部、2→章、3→節、4→項、5→干、6→一、7→數、8 以後→ＡＢＣ…；層級鏈寫在每個 `<書 t="部,章,節,項,干,一,數,Ａ…">`（與舊 `yinshun.adb` 的目錄一致；標籤名只是層級，畫面顯示的是標題文字）。第一個 `<head>` 若與書名相同，只留文字、不開節點 |
 | `<note>`（行內註，如「方等泥洹經〔註82〕竺法護釋法顯」） | `<註 n="37.082"/>`（行內）＋段末 `<段/><釋 n="37.082">竺法護釋法顯</釋>`；註裡的 `<ref>` 轉成 `<聯>`（2026-10-30 起與腳註相同，不再寫 `〔註n〕` 純文字行） |
 | `<app>` | 只留 `<lem>` 底本文字，`<rdg>` 略過 |
+| `<g ref="#CB01121">…</g>`（CB 缺字） | 讀 teiHeader 的 `<charDecl>`（`<char xml:id>` ＋ `<mapping type="unicode">`／`normal_unicode`）。`<g>` 內文 1 字就用它，否則用 charDecl 的 Unicode；都沒有就留 `&CB…;` 並記進 `build/ys-missing-gaiji.tsv`。Y 部共 696 個（486 個在 body），2026-10-31：成功 484、缺 0。 |
+| `<foreign xml:lang="sa|pi|bo">`（漢詞（外語）） | `<术 sk\|pi\|tb="…">漢詞</术>`（外語進屬性、正文只留漢詞）；**可跨行**：被 `<lb>` 切成兩行時，開標籤在上一行尾端、`</术>` 收在下一行（2026-10-31；整份文件標籤平衡即可，不要求單行相等） |
 | `<graphic url="../figures/Y/Y08p0052_01.svg"/>` | `<圖 n="svg/Y08/Y08p0052_01.svg"/>`（圖檔要存在，見 §2.4） |
 | `<anchor n="0037056"/>`（腳註引用） | `<註 n="37.085"/>`（`<書id>.<序>`，與段末的 `<釋>` 對應） |
-| `<back>` 的 `<cb:div type="yinshun-notes">` | 該段的 `<段/><釋 n="37.085">`注文`</釋>`；注文裡的 `<ref target="#vol:12;page:p1081a">` 轉成 `<聯 i="taisho?12p1081a">` |
+| `<back>` 的 `<cb:div type="yinshun-notes">` | **書末**（`</body>` 前）集中輸出 `<段/><釋 n="37.085">`注文`</釋>`；注文裡的 `<ref target="#vol:12;page:p1081a">` 轉成 `<聯 i="taisho?12p1081a">` |
 | `<note>`／`<app>` 以外的元素 | 只取文字，標籤丟棄 |
 
 `<g>`、`<cb:mulu>` 一律跳過；`<anchor>` 轉成 `<註>`，`<back>` 只讀 `type="yinshun-notes"`（印順自己的腳註，見上表與 §8）。
@@ -115,7 +117,7 @@ CBETA 的 Y 部 XML 沒有 accelon 的 `u=` 屬性，少了它節點就不會進
 ### 2.3 預期數字（2026-10 版）
 
 ```text
-lines=305522 卷=460 書=44 段=31882 註=5230 頁=17510 頁元=73
+lines=326982 卷=460 書=44 段=31882 註=16355 釋=15960 頁=17510 頁元=73；gaiji=484 missing=0（另見 §2.1）
 ```
 
 頁元 **73**（CBETA 的 `pb` 前綴有 a、b、y、z），比語料／對照表的 **70** 多 3 個；
@@ -332,8 +334,8 @@ bun run addj.ts
 - 對不上（版本差異、轉述、跨頁）就不寫 `j`，閱讀器退回用 `q` 比對。
 - 依賴 `D:\accelon3\taisho.adb`（唯讀，可用 `YS_TAISHO` 覆寫），跑一次約 6 秒。
 
-2026-10-30 實測：`<聯>` 29,624（正文 18,180＋註 11,444）；帶 `q` 的 18,178 條；
-**補上 `j` 17,035 條**（其中 1,738 條用寬鬆對位），沒有 `j` 的 1,143 條。
+2026-10-31 實測：`<聯>` 20,754（正文 9,310＋註 11,444）；帶 `q` 的 9,701 條；
+**補上 `j` 9,178 條**（其中 469 條用寬鬆對位），沒有 `j` 的 523 條。
 `38p0156a` → `taisho?8p562b` 的 `j="293-324"`。
 
 > 與 `build/ys-j-verified-keepq.adb`（2026-10-29 的參考產物）的關係：短引文那部分
@@ -342,7 +344,23 @@ bun run addj.ts
 > `repair-window`／`verify-j` 砍掉的範圍（例：`taisho?25p190a` 的 25 字引文，
 > `j="309-334"` 正好是整段）。
 
-### 4.5 為什麼不用座標直接插
+### 4.5 反鏈快查表 `xrev`（2026-10-31）
+
+`pack.ts` 會先用 `authorAdb` 產生一份「沒有 xrev」的檔，開它讀 `聯.i`／`聯.q` 與
+`頁.id`，算出每一條 `<聯 i="db?page">` 的來源頁與來源 VA，再壓成 bzip2 JSON Lines
+放進外層容器 `xrev`（1 個 block）：
+
+```text
+["XREV1", 20752]
+["ys","36p0162a",5897587,"taisho","26p625c","原其大本頌有六千…"]
+```
+
+- 欄位：`[srcDb, srcPage, srcVa, targetDb, targetPage, quote]`，`quote` 是 `聯.q`（沒有就 `""`）。
+- 目前 20,752 筆、JSON 2.15 MiB → bz2 0.53 MiB；檔案 26.5 MiB。
+- 舊的 ys.adb（沒有 `xrev`）照樣可用；沒有這個容器時閱讀器會退回現算（ys 約 1.7 秒）。
+- 驗證：打包後會用最終檔再算一次，`srcVa` 集合必須與寫進去的完全一致，否則自動改出不含 `xrev` 的檔。
+
+### 4.6 為什麼不用座標直接插
 
 實測語料「頁 65」與 CBETA `0065a` **不是同一頁**（Y22 的 `0065a` 只有 13 行，
 語料同頁有 19 行以上），且語料 70 頁元、CBETA 73 頁元。
@@ -363,10 +381,11 @@ bun run pack.ts
   `D:\2026\xml-p5\Y-images` 讀，只收真的有引用到的）
 - 打包後把 header 的 `andtagid` 設回 0（與 `yinshun.adb` 一致）
 - 打包前檢查每一行 ≤ 4,096 字（Accelon3 `MAXLINELEN`），超過直接報錯
+- 打包時順便算 **反鏈快查表 `xrev`**（見下），舊讀者忽略這個容器也能開檔
 - **直接寫部署位置** `D:\accelon3\ys.adb`（先寫 `.new` 再改名，避開檔案被開著時的
   `EUNKNOWN`）。工作區不留 `ys.adb`；跑 `pack.ts` 就會覆寫它（本機測試可以，上傳官網要另外說）。
 
-預期：`dbname ys`、`linecount 329391`、`27.6 MiB`、`resources 77`（2 張 logo ＋ 75 張圖）、
+預期：`dbname ys`、`linecount 328601`、`26.7 MiB`、`xrev` 20,752 筆、`resources 77`（2 張 logo ＋ 75 張圖）、
 `<聯>` 17,916。
 
 ---
@@ -380,7 +399,7 @@ go run ./cmd/abx inspect 'D:\accelon3\ys.adb'
 bun run ts/tools/probe-adb.ts --adb 'D:\accelon3\ys.adb' --query 涅槃
 ```
 
-應看到：`dbname "ys"`、`linecount 329391`、`andtagid 0`，
+應看到：`dbname "ys"`、`linecount 328601`、`andtagid 0`，
 檢索有結果且 `consoleErrors: null`。
 
 目錄第一項是「般若經講記」，最後一項是「2026年AI版後記」（章名「後記」）。
@@ -418,7 +437,7 @@ pwsh D:\2026\ys\build.ps1
 6. **`<註>` 的兩種寫法**：`<註>內容</註>`（Accelon26 會把內容隱藏）不要用；
    要寫**自閉合**的 `<註 n="37.082"/>`，內容放段末的 `<釋 n="37.082">…</釋>`
    （行內註與 `<anchor>` 腳註都一樣；2026-10-30 起 y2adb 對 `<note>` 就是這樣輸出）。
-7. **`<back>` 只收印順註**：`type="yinshun-notes"` 的 `<note>` 已收（2026-10-30，11,125 條，段末輸出 `<釋>`）；`apparatus`（校勘）與 `add-notes` 仍不入 `ys.adb`。
+7. **`<back>` 只收印順註**：`type="yinshun-notes"` 的 `<note>` 已收（2026-10-30；2026-10-31 起照 XML 位置集中書末，`<釋>` 15,960 條）；`apparatus`（校勘）與 `add-notes` 仍不入 `ys.adb`。
 8. **`appendix` 來源是 `yinshun.adb`**：不要把 `D:\accelon3\yinshun.adb` 刪掉或覆蓋。
 
 ---
@@ -438,6 +457,7 @@ pwsh D:\2026\ys\build.ps1
 | 檔案 | 說明 |
 |---|---|
 | `data/ys-epilog26.txt` | 後記原始檔（含 Accelon3 標記） |
+| `alignments/yinshun-taisho.tsv` | 印順 → 大正藏對照表（14,128 列；2026-10-30 從 offtext 移入） |
 | `build/ys-text.txt` | y2adb 輸出（44 冊，含註） |
 | `build/ys.lbs.tsv` | 行號 → 冊／lb |
 | `build/ys-text-full.txt` | ＋附錄＋後記 |
@@ -455,4 +475,164 @@ pwsh D:\2026\ys\build.ps1
 | `images.ts` | CBR2X-figures／corpus svg → `D:\2026\xml-p5\Y-images\svg\YNN\`（一次性） |
 | `D:\2026\xml-p5\Y-images` | 正文插圖（資源名 `svg/YNN/…`；XML 引用 75 張，全部收得到） |
 
+### 4.6 佛光大辭典對照表（`build/fgdict-terms.tsv`）
 
+`tools/fgdict-terms.py`（Python）從 `D:\2023\fgdict-corpus\xml\fgdict*.xml` 抽
+`<詞>…</詞>` 釋文裡的「（梵…）／（巴…）」，產生四欄對照表：
+
+```text
+term	lang	foreign	norm
+中天竺	sk	Madhya -deśa	madhyadesa
+```
+
+- 2026-10-31 實測：7,502 組、1,885 個漢詞、4,703 個外語鍵。
+- `--check` 會拿 `build/ys-linked.txt` 的 `<术>` 比對：8,344 條中有 4,765 條對到辭典。
+- 用途：(1) 檢查 ys 的術語邊界是否與辭典一致；(2) 閱讀器可當術語詞表；
+  (3) 之後要「以辭典優先」修邊界時的資料來源。
+
+## 11. 發布亮點（給 ys.html／公告）
+
+**漢梵對照是 ys.adb 的特色，CBETA 沒有提供。**
+
+- CBETA 的 TEI 只用 `<foreign xml:lang="sa|pi|bo">` 標出外語，沒有「漢詞邊界＋外語」
+  的對照表，也沒有可直接使用的詞表。
+- ys 把它做成 `<术 sk|pi|tb="…">漢詞</术>`：2026-10-31 建置 8,852 條
+  （梵 8,336、巴 440、藏 5；跨行 447）。
+- 邊界用「外語反查」確認（同一外語對到同一漢詞），再用佛光大辭典 7,502 組對照
+  （`build/fgdict-terms.tsv`）交叉檢查。
+- 可給使用者：**斷詞**（詞界有外語可驗）、**詞表**（`build/term-table.tsv`，2,679 組）、
+  **閱讀器 hover**（`<术>` 顯示原文，accelon26 待實作）。
+
+每次發布 `ys.adb` 都要在 `ys.html`／公告寫這一段。
+
+## 12. 手動術語覆寫（`data/term-overrides.tsv`）
+
+反查、頻率規則都救不回來的個案，作者直接指定：
+
+```text
+foreign	term	note
+Suhma	修摩國	作者 2026-10-31：Suhma 是修摩國
+```
+
+- `cmd/y2adb` 啟動時讀 `data/term-overrides.tsv`（可用 `YS_TERM_OVERRIDES` 換路徑）。
+- 套用時只換標籤裡的漢詞；原文若有多餘前綴（「在修摩」），會用最長重疊把重複部分留在外面，
+  結果是「在<术 sk="Suhma">修摩國</术>」。
+- 這裡的指定優先於所有自動規則；每加一筆要重跑 `build.ps1`。
+
+### 6.1 鏈結健檢（`tools/check-links.py`，建置時自動跑）
+
+`build.ps1` 在 `addj.ts` 之後、`pack.ts` 之前跑這支檢查；數字不符就丟錯、
+**不打包也不寫 deployment**。基準（2026-10-31）：
+
+```text
+<聯 taisho> 20,755（全部 <聯> 20,757）
+有 q 9,704
+有 j 9,167
+```
+
+- 這三個數字是「座標有沒有被動到」的守門員；`<术>` 插入不應該改變它們。
+- 2026-10-31 補回 CB 缺字（`<g>`）後，正文字數增加，calibrate 多對到 3 條引文：
+  20,752→20,755、q 9,701→9,704、j 9,164→9,167。這是變好，不是座標跑掉。
+- 同一天稍早也曾出現 j 9,178→9,164；實測把 `<术>` 全拿掉再跑仍 9,164，確認與 `<术>`
+  無關（來自文字調整）。改基準時要在 commit 說明原因。
+- 若日後真的要改鏈結規則，先改 `tools/check-links.py` 的 `BASE` 並在 commit 說明原因。
+
+## 13. 詞彙表 `glossary`（2026-10-31）
+
+`glossary.ts` 從 `build/ys-linked.txt` 抽出所有 `<术>`，去重成 `(lang, foreign, han, count)`，
+`pack.ts` 用 `buildContainer({ feature: 0 })` 放進外層容器 `glossary`（1 個 block、
+**未壓縮** UTF-8 JSON Lines）：
+
+```text
+["GLOSSARY1", 4107]
+["sk","svabhāva","自性",12]
+```
+
+- 2026-10-31 實測 4,107 筆、151 KiB；檔案因此多約 155 KB。
+- 讀取端（`D:\2026\adb-converter` 的 `glossary.ts`）解析這個容器，開啟左欄「詞彙」分頁。
+- 顯示時保留外語原樣（含變音符號）；**輸入**可以省略變音符號、不分大小寫。
+- 舊的 `ys.adb` 沒有這個容器，閱讀器就不顯示「詞彙」分頁（向下相容）。
+
+
+## 14. 術語斷詞（共用機制，2026-11-01）
+
+`<术>` 由 y2adb 依 CBETA `<foreign>` 產生，CBETA 標到哪裡就包到哪裡，常有斷詞錯誤
+（包太多：`<术>得四增上心</术>`；包太少：`<术>動作意</术>`）。**不自建詞表**，一律用
+`D:\2026\adb-converter` 的共用機制：
+
+- `ts/src/terms/terms.ts`：共用實作（`loadTerms`／`loadFixes`／`fixTerms`／`applyTerms`／`glossary`）
+- `ts/tools/terms.ts`：CLI（`apply`｜`fix`｜`glossary`｜`check`）
+- `data/terms.tsv`：常用詞表（3,302 條，canonical）
+- `data/term-fixes.tsv`：明確修正表（63 條；`fix` 只依這張，不猜）
+- `docs/adb/terms.md`：機制說明
+
+建置步驟（`build.ps1`，插在 `addj.ts` 之後、`check-links.py` 之前）：
+
+```powershell
+# 術語斷詞修正：用 adb-converter 的共用詞表（只修 <术>，不動 <聯>/q/j）
+bun run ..\adb-converter\ts\tools\terms.ts fix --text build\ys-linked.txt --write
+if ($LASTEXITCODE -ne 0) { throw '術語斷詞修正失敗（tools/terms.ts）' }
+```
+
+乾跑（不寫檔，先確認數字）：
+
+```powershell
+bun run ..\adb-converter\ts\tools\terms.ts fix --text build\ys-linked.txt
+```
+
+- 只改 `<术>`：多包的字搬到標籤外、少包的字補進來；標籤數不變（一進一出）。
+- 可重複執行：同一支再跑一次應該是「多包修正 0、少包修正 0」。
+- 2026-11-01 首次套用：多包 55、少包 3；`<术>` 8,966 不變、`<聯>` 20,757 不變、
+  `check-links` 通過、`glossary` 4,081 筆。
+- 詞表雜質（例：`之為我`、`為有為`）由 adb-converter 端維護；清理後重跑即可。
+
+## 15. 行內註（`<note place="inline">`，2026-11-02）
+
+CBETA 的 `<note place="inline">` 是行內的大正／南傳對照（例：「大正二．九二下」），
+不是腳註。y2adb 現在把它留在正文、`<ref>` 轉成 `<聯 i="taisho?…">`，不再產生
+`<註>`／`<釋>`。全書約 5,291 條，修完 `<註>` 16,355→11,168、`<釋>` 15,960→10,773、
+`<聯>` 20,757→23,679；`check-links.py` 基準已同步。
+
+## 16. 紙本註號對照（2026-11-02）
+
+舊 `D:\2023\yinshun-corpus\xml\yNN.xml` 的 `<ptr type="note" target="#noteX.YYY"/>`
+標的是紙本註號（`note` 去掉就是 `X.YYY`）。`tools/build-note-map.py` 逐冊用「註標前 40
+個漢字」在舊 corpus 唯一比對，產生 `data/note-numbers.tsv`（`冊\tn\t冊.紙本註號`），
+y2adb 以 `-notes data/note-numbers.tsv` 讀入：`<註 n>`／`<釋 n>` 顯示 `冊.紙本註號`
+（全 adb 唯一），比對不到的才用原來的 `冊.序號`。
+
+覆蓋：11,125 條有舊 corpus 的章.註號；其餘 43 條所在的冊（Y13、Y16 等）舊 corpus 沒有 ptr，
+用 `0.序號@冊` 佔位。全部 `<註>` 都是三段式，不再混用。
+
+## 17. 圖版補齊（2026-11-02）
+
+CBETA Y 的 TEI 只有 75 個 `<graphic>`；`Y-images/svg/YNN/` 實際有 377 個
+`YNNpPPPP_SS.svg`（圖版、表格 facs）。`tools/inject-images.py` 依檔名頁碼把沒被引用的
+圖插在對應 `<頁 id="NNpPPPPx"/>` 後面（`<圖 … t="圖版"/>`，不增減換行），建置順序插在
+`addj.ts` 之後、`terms.ts fix` 之前。2026-11-02 首次執行：補 208 張，全書 `<圖>` 384 張（352 個頁面）。
+剩下 12 個檔案在正文找不到對應頁（例 Y35p0154，CBETA 文字沒有這一頁），暫不硬塞。
+`tools/import-yinshun-images.ts` 再把 yinshun.adb 的 `yNN-PPP.png` 抽到
+`Y-images/png/YNN/`，只補「該頁還沒有 <圖>」的頁（2026-11-02：110 頁）。
+現在頁面覆蓋 462 頁，yinshun.adb 是 444 頁；只剩 6 頁（35p0154、35p0367、36p0494、
+36p0620、37p0086、37p0760）因為 CBETA 正文沒有該頁標記而放不進去。
+
+## 18. 表格（`<表>`，2026-11-06）
+
+CBETA 的 `<table>` 不再一律轉成頁面圖版；`y2adb` 現在會把表格緩衝成閱讀器的文字表格：
+
+```text
+<表>
+| 《施設論》十空 | 《舍利弗阿毘曇論》六空 |
+| --- | --- |
+| <术 sk="adhyātmā-śūnyatā">內空</术> | 1 內空 |
+…
+</表>
+```
+
+- 每一列一行；cell 內可保留 `<術>`／`<註>`／`<聯>`／`<頁>` 等行內標籤。
+- 表格中間的 `<頁 id="…"/>` 變成 `<表>` 裡的整列頁碼列（parser 會合併）。
+- 只有「≥2 欄、≥2 列、欄數一致、沒有合併儲存格、沒有巢狀表」才輸出 `<表>`；
+  其餘退回原圖（有圖時）或文字列（`｜` 分隔）。
+- 有文字表時不再放同一頁的表格 facs；只有退回原圖的表格才保留 `<圖 t="圖版">`。
+- 2026-11-06 首版：`<表>` 259 張、退回原圖 13 張、純文字列 17 張（共 289 張表格）；
+  `<圖>` 從 494 降到 368。
