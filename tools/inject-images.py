@@ -37,11 +37,20 @@ def main(path=TEXT):
             continue
         key = (str(int(m.group(1))), str(int(m.group(3))))
         first_at.setdefault(key, (m.end(), idx))
-    # 這一頁有沒有文字表（<表>）：有的話就不用再插同一頁的表格 facs（會與文字表重複）
+    # 這一頁有沒有文字表：有的話就不用再插同一頁的表格 facs（會與文字表重複）。
+    # 2026-11-14（陳裕文回報「圖檔位置」）：ys 的科判表在 CBETA 文字裡多半不是
+    # `<表>`，而是用 ┌ ├ └ ─ 這些框線字元排出來的（例：p18 的五菩提表
+    # `<段/>┌─發心菩提＼…`）。只看 `<表>` 會把同一張表的圖版再插一次——
+    # 那一頁於是「頁碼後面一張圖 + 下面一段文字表」兩份，而且圖是插在頁碼
+    # 後面（常常落在句子中間，把一句話切成兩半）。框線字元也算「這一頁已經
+    # 有表」，共 173 頁 175 張，略過不插。
+    BOX_CHARS = set('┌├└│┬┴┼╭╮╰╯＼／─')
+
     def page_has_table(idx: int) -> bool:
         start = marks[idx].end()
         end = marks[idx + 1].start() if idx + 1 < len(marks) else len(text)
-        return '<表>' in text[start:end]
+        seg = text[start:end]
+        return '<表>' in seg or any(c in BOX_CHARS for c in seg)
 
     # <表> 區塊裡不要插圖：頁碼列必須是單獨一行（一列一行）
     table_ranges = [(m.start(), m.end()) for m in re.finditer(r'<表>.*?</表>', text, re.S)]

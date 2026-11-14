@@ -47,7 +47,7 @@ pwsh D:\2026\ys\build.ps1
 `D:\accelon3\ys.adb`（可用 `YS_DEPLOY` 改；工作區不留 adb，跑 `pack.ts` 就會覆寫它）。
 
 預期：`dbname ys`、`linecount 318227`、`26.8 MiB`、`xrev` 20,752 筆、`resources 77`（2 logo ＋ 75 圖）、
-`<聯>` 23,679（含 `place="inline"` 的行內大正／南傳對照）、`j` 9,213、`<引>` 49,103、`<术 sk|pi|tb>` 8,976（跨行 459）、`<表>` 259 張文字表格、`<圖>` 368 張（t="圖版"）、`glossary` 4,097 筆（含 line／page／off／hanline）、`<註>` 11,168（`<釋>` 10,773）、`andtagid 0`；CB 缺字 `gaiji=484 missing=0`（`build/ys-missing-gaiji.tsv`）。
+`<聯>` 23,679（含 `place="inline"` 的行內大正／南傳對照）、`j` 9,213、`<引>` 49,103、`<术 sk|pi|tb>` 8,976（跨行 459）、`<表>` 259 張文字表格、`<圖>` 193 張（t="圖版"；2026-11-14 起同一頁已有框線文字表的 175 張不再重複插圖）、`glossary` 4,097 筆（含 line／page／off／hanline）、`<註>` 11,168（`<釋>` 10,773）、`andtagid 0`；CB 缺字 `gaiji=484 missing=0`（`build/ys-missing-gaiji.tsv`）。
 
 ## 特色：漢梵對照（下次發布要提）
 
