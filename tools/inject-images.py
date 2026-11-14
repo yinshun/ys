@@ -25,11 +25,17 @@ def main(path=TEXT):
     text = open(path, encoding='utf-8').read()
     files = sorted(glob.glob(os.path.join(IMG_DIR, 'Y*', '*.svg')))
     # 頁碼 → 第一個頁標記（用 (vol, page) 當 key，頁 id 例：38p0111a）
-    page_re = re.compile(r'<頁 id="(\d+)p[a-z]?(\d{1,4})[a-z]"/>')
+    # `pa` 是序目（目錄）：圖檔名給的是**正文**頁碼，而序目排在全書最前面，
+    # 同一個號碼會先命中序目 —— 2026-11-14 陳裕文回報「圖檔亂放」，
+    # 《妙雲集》序目 1pa18a 冒出正文第 18 頁的五菩提科判圖（Y01p0018_01.svg）。
+    # 所以序目一律不承接圖版；`pb`（附錄）自分頁，頁碼屬於哪一套要對原書，暫不動。
+    page_re = re.compile(r'<頁 id="(\d+)p([a-z]?)(\d{1,4})[a-z]"/>')
     marks = list(page_re.finditer(text))
     first_at = {}
     for idx, m in enumerate(marks):
-        key = (str(int(m.group(1))), str(int(m.group(2))))
+        if m.group(2) == 'a':
+            continue
+        key = (str(int(m.group(1))), str(int(m.group(3))))
         first_at.setdefault(key, (m.end(), idx))
     # 這一頁有沒有文字表（<表>）：有的話就不用再插同一頁的表格 facs（會與文字表重複）
     def page_has_table(idx: int) -> bool:
