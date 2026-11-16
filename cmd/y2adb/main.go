@@ -1140,8 +1140,9 @@ func (e *emitter) addPending(n string) {
 	e.notePend = append(e.notePend, n)
 }
 
-// 書末（</body>）：把這本書引用到的注文依序寫成 <段/><釋 n="…">…</釋>，
-// 位置照 CBETA <back> 的 yinshun-notes（集中書末），不再散在每段後面。
+// 把累積的注文依序寫成 <段/><釋 n="…">…</釋>。
+// 2026-11-16 甲案（厚觀法師 UID 271）：改在每個頂層章開始前 flush（＝上一章之末），
+// </body> 留作兜底；編號不動，仍是紙本「章.註@冊」。
 func (e *emitter) flushNotes() {
 	for _, n := range e.notePend {
 		body, ok := e.notes[n]
@@ -1167,6 +1168,13 @@ func (e *emitter) openHeading() {
 	tag := "章"
 	if e.muluLevel >= 1 && e.muluLevel <= len(tierNames) {
 		tag = tierNames[e.muluLevel-1]
+	}
+	// 甲案（厚觀法師 2026-11-16 UID 271：「照紙本原來的號……搬到章末之後號碼不變」）：
+	// 新的頂層章開始前，先把上一章累積的注文 <釋> 落在這裡——原本全部集中在 </body> 書末。
+	// 編號不動（n 仍是紙本「章.註@冊」）；只搬位置。書末 flush 保留做兜底
+	// （最後一章之後、以及首章之前才出現的引用）；空佇列時 flush 是無動作。
+	if tag == "章" {
+		e.flushNotes()
 	}
 	e.headTag = tag
 	e.write("<" + tag + ` u="文">`)
