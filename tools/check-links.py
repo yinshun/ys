@@ -8,7 +8,7 @@ import re
 import sys
 
 SRC = r'D:\2026\ys\build\ys-linked.txt'
-BASE = {'links': 23677, 'with_q': 9761, 'with_j': 9213}  # 2026-11-06：表格改 <表> 文字表，cell 內的 <聯> 回來了  # 2026-11-02：表格改放 <圖>（內容不再以文字重複）  # 2026-11-02：place="inline" 的 <note> 改回行內 <聯>（不再算腳註），<聯> +2,922  # j 依 taisho.adb 而變（作者 2026-11-01 重建 taisho 後 9167→9149）  # <聯> 全部 20,754，其中 20,752 條是 taisho 鏈結；j 基準 2026-10-31 19:xx（補回 CB 缺字後多 3 條鏈結，見 docs §6.1）
+BASE = {'links': 23683, 'with_q': 9764, 'with_j': 9215}  # 2026-11-17 裕文 298：甲案 flush 細到分區末，注文搬家後 calibrate 新配到 6 條 taisho 鏈（+6、q+3、j+2）  # 2026-11-06：表格改 <表> 文字表，cell 內的 <聯> 回來了  # 2026-11-02：表格改放 <圖>（內容不再以文字重複）  # 2026-11-02：place="inline" 的 <note> 改回行內 <聯>（不再算腳註），<聯> +2,922  # j 依 taisho.adb 而變（作者 2026-11-01 重建 taisho 後 9167→9149）  # <聯> 全部 20,754，其中 20,752 條是 taisho 鏈結；j 基準 2026-10-31 19:xx（補回 CB 缺字後多 3 條鏈結，見 docs §6.1）
 
 txt = open(SRC, encoding='utf-8').read()
 links = re.findall(r'<聯 i="taisho\?[^"]+"[^>]*>', txt)

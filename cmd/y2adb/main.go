@@ -64,6 +64,7 @@ type emitter struct {
 	notes     map[string]string
 	noteShort map[string]string // CBETA n → 短編號（<書>.<序>，顯示用）
 	notePend  []string          // 這本書出現過的註，等 </body> 一起輸出 <釋>
+	pendZone  string            // notePend 目前累積到的分區（「章.註@冊」的章號；裕文 2026-11-17）
 	// 正文裡的行內註（<note place="inline2">…</note>，例如「方等泥洹經
 	// 〔註82〕竺法護釋法顯」）：轉成 <註>/<釋> 時用來收集文字（2026-10-30）
 	noteKey     string
@@ -1127,17 +1128,35 @@ func (e *emitter) markNote(n string) {
 	}
 	e.write(`<註 n="` + short + `"/>`)
 	e.stats["註"]++
-	e.addPending(n)
+	e.addPending(n, noteZone(short))
 }
 
-// 同一條註在正文可能被引用多次，只排一次
-func (e *emitter) addPending(n string) {
+// 同一條註在正文可能被引用多次，只排一次。
+// 2026-11-17 裕文 298：分區號（顯示短號「區.註@冊」的區部分）一換區，先把前一區的
+// 注文落在引用切換點——注文的區有章／節／項各級，一律以注號自己的分區為準
+// （「每一個 xxx.001 就是每個區的注文的開始」），不再只認頂層章。
+// zone 由呼叫端從短號算（raw CBETA n 可能是純數字，沒有「.」）。
+func (e *emitter) addPending(n, zone string) {
+	if zone != "" && e.pendZone != "" && zone != e.pendZone && len(e.notePend) > 0 {
+		e.flushNotes()
+	}
 	for _, x := range e.notePend {
 		if x == n {
 			return
 		}
 	}
 	e.notePend = append(e.notePend, n)
+	if zone != "" {
+		e.pendZone = zone
+	}
+}
+
+// noteZone：顯示短號「11.001@38」→「11」；沒有「區.註」格式的回空字串。
+func noteZone(short string) string {
+	if at := strings.IndexByte(short, '.'); at > 0 {
+		return short[:at]
+	}
+	return ""
 }
 
 // 把累積的注文依序寫成 <段/><釋 n="…">…</釋>。
@@ -1155,6 +1174,7 @@ func (e *emitter) flushNotes() {
 		e.nl()
 	}
 	e.notePend = e.notePend[:0]
+	e.pendZone = ""
 }
 
 /**
@@ -1499,7 +1519,7 @@ func main() {
 					}
 					e.write(`<註 n="` + short + `"/>`)
 					e.stats["註"]++
-					e.addPending(key)
+					e.addPending(key, noteZone(short))
 					e.noteKey = key
 					e.noteBuf.Reset()
 					e.noteRefOpen = e.noteRefOpen[:0]
