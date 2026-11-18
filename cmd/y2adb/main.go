@@ -104,9 +104,18 @@ type emitter struct {
 	// 時需要回頭在上一行插入開標籤，直接寫 out 就改不到了）。
 	pending    string
 	hasPending bool
-	// 這一行是跨行術語的「收尾行」：舊行為是含 <术 的行就跳過 wrapSanskrit，
+		// 這一行是跨行術語的「收尾行」：舊行為是含 <术 的行就跳過 wrapSanskrit，
 	// 為了不改變全文 <术> 的數量，收尾行也照樣跳過（2026-10-31）。
 	crossClosed bool
+	// 裕文 2026-11-18（310）：換區 flush 的注文要落在**新區標題行之前**，
+	// 不是落在該區第一條引用的位置（引用常在標題下好幾段正文裡，注文就插進
+	// 本文中間了）。openHeading 記下每個標題行的起始位元組（out 已提交部分＋
+	// pending 行）；addPending 換區時若「下一個標題就是目前位置」，把注文插到
+	// 那個標題行之前；否則維持舊行為（追加在引用點）。
+	headMark  int
+	headValid bool
+	// openHeading 開了標題行、還沒定案進 pending（nl 時轉成 headMark）
+	headPending bool
 }
 
 // 梵語詞（作者 2026-10-31）：CBETA 的「漢詞（jātaka）」改成
@@ -959,6 +968,13 @@ func (e *emitter) nl() {
 		e.out.WriteString(e.pending)
 		e.out.WriteByte('\n')
 	}
+	// 裕文 310：剛提交完、這一條（多半是標題行）還沒進 out——此刻 out 的尾端
+	// 就是這一行的起始位。若這行正是 openHeading 開的標題，記下區界插入點。
+	if e.headPending {
+		e.headPending = false
+		e.headMark = e.out.Len()
+		e.headValid = true
+	}
 	e.pending = s
 	e.hasPending = true
 	e.lineNo++
@@ -1138,7 +1154,9 @@ func (e *emitter) markNote(n string) {
 // zone 由呼叫端從短號算（raw CBETA n 可能是純數字，沒有「.」）。
 func (e *emitter) addPending(n, zone string) {
 	if zone != "" && e.pendZone != "" && zone != e.pendZone && len(e.notePend) > 0 {
-		e.flushNotes()
+		// 裕文 310：換區＝新區已開始（新區標題在引用之前已輸出），前一區的
+		// 注文要插到那個標題行之前（區界），不是插在引用點（常在正文中間）。
+		e.flushNotesToZoneStart()
 	}
 	for _, x := range e.notePend {
 		if x == n {
@@ -1162,19 +1180,76 @@ func noteZone(short string) string {
 // 把累積的注文依序寫成 <段/><釋 n="…">…</釋>。
 // 2026-11-16 甲案（厚觀法師 UID 271）：改在每個頂層章開始前 flush（＝上一章之末），
 // </body> 留作兜底；編號不動，仍是紙本「章.註@冊」。
-func (e *emitter) flushNotes() {
+func (e *emitter) flushNotes() { e.flushNotesCore(false) }
+
+// 裕文 310：換區專用——前一區的注文插到「最近一個標題行之前」（＝區界）。
+// 新區的第一條引用常在標題下的正文中間，插到標題前才不會把注文塞進本文。
+func (e *emitter) flushNotesToZoneStart() { e.flushNotesCore(true) }
+
+func (e *emitter) flushNotesCore(toHead bool) {
+	if len(e.notePend) == 0 {
+		e.pendZone = ""
+		return
+	}
+	// 先組出注文區塊（<段/><釋>…），再決定插入點或追加
+	var block strings.Builder
 	for _, n := range e.notePend {
 		body, ok := e.notes[n]
 		if !ok {
 			continue
 		}
-		e.nl()
-		e.write(`<段/><釋 n="` + e.noteShort[n] + `">` + body + `</釋>`)
+		block.WriteString("\n")
+		block.WriteString(`<段/><釋 n="` + e.noteShort[n] + `">` + body + `</釋>`)
+		block.WriteString("\n")
 		e.stats["釋"]++
-		e.nl()
 	}
 	e.notePend = e.notePend[:0]
 	e.pendZone = ""
+	txt := block.String()
+	if txt == "" {
+		return
+	}
+	if toHead && e.capture == nil && e.headValid {
+		e.insertAtHeadMark(txt)
+		return
+	}
+	for _, n := range strings.Split(txt, "\n") {
+		if n == "" {
+			continue
+		}
+		e.nl()
+		e.write(n)
+		e.nl()
+	}
+}
+
+// insertAtHeadMark：把注文區塊插到最近一個標題行之前（區界）。
+// headMark 在標題行定案進 pending 的當下記錄（＝當時 out 的長度），之後
+// wrapSanskrit 回頭改 pending 內容也不影響這個起點。兩種現況：
+//   標題行還在 pending（引用緊接標題）→ 區塊先寫進 out，標題行隨後提交；
+//   標題行已提交（引用在標題下的正文中）→ 在 headMark 處切開插入。
+// 位置對不上（非行界）就退回追加，寧可保守不可弄壞行。
+func (e *emitter) insertAtHeadMark(txt string) {
+	if e.headMark == e.out.Len() {
+		// 標題行還在 pending：先把區塊放進 out，再讓 pending（標題行）隨後出
+		e.out.WriteString(strings.TrimPrefix(txt, "\n"))
+		e.headValid = false
+		return
+	}
+	e.flush() // 提交 pending（標題行或其前一行），讓位移落定
+	buf := e.out.String()
+	pos := e.headMark
+	if pos < 0 || pos > len(buf) || (pos > 0 && buf[pos-1] != '\n') {
+		e.out.WriteString(txt)
+		e.headValid = false
+		return
+	}
+	e.out.Reset()
+	e.out.WriteString(buf[:pos])
+	e.out.WriteString(strings.TrimSuffix(strings.TrimPrefix(txt, "\n"), "\n"))
+	e.out.WriteByte('\n')
+	e.out.WriteString(buf[pos:])
+	e.headValid = false // 插過就作廢，避免重複插到同一處
 }
 
 /**
@@ -1198,6 +1273,8 @@ func (e *emitter) openHeading() {
 	}
 	e.headTag = tag
 	e.write("<" + tag + ` u="文">`)
+	// 裕文 310：真正的標題行起始位要在這一行定案、進 pending 時才記（nl 裡）。
+	e.headPending = true
 }
 
 func esc(s string) string {
